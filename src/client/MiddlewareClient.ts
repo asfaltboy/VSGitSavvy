@@ -22,15 +22,22 @@ export class MiddlewareClient {
 		}
 		this.service = service;
 		this.bindServiceHandlers(this.service);
+		this.startClient(50051);
 	}
 	private startService(): SpawnedService {
 		const process = cp.spawn(
-			"/Users/pavel.savchenko/.pyenv/versions/3.6.8/bin/python3",
-			["greeter_server.py"],
-			{ cwd: "/Users/pavel.savchenko/github/grpc/examples/python/helloworld" }
+			"/Users/pavel.savchenko/go/bin/greeter_server"
+			// "/Users/pavel.savchenko/.pyenv/versions/3.6.8/bin/python3",
+			// ["greeter_server.py"],
+			// { cwd: "/Users/pavel.savchenko/github/grpc/examples/python/helloworld" }
 		);
-		if (!process.connected) {
-			console.error("[x] service could not start:", process.stderr.read());
+		if (process.killed) {
+			console.error(
+				"[x] service could not start:",
+				process.stderr.read(),
+				process.stdout.read(),
+				process.pid
+			);
 			throw Error("Greeter server service cannot be started");
 		}
 		const service: SpawnedService = {
@@ -50,6 +57,7 @@ export class MiddlewareClient {
 		console.info("[v] Attaching handlers to service");
 		service.process.on("error", this.onProcessError.bind(this));
 		service.process.on("close", this.onServiceClose.bind(this));
+		service.process.stderr.on("data", this.onStdOut.bind(this));
 		service.process.stdout.on("data", this.onStdOut.bind(this));
 	}
 	private onServiceClose(code: number, signal: string) {
@@ -89,11 +97,24 @@ export class MiddlewareClient {
 		if (!this.client) {
 			throw Error("MiddlwareClient hasn't established connection yet");
 		}
-		var request = new HelloRequest();
-		var user;
+		const request = new HelloRequest();
 		request.setName("Foobar");
 		this.client.sayHello(request, function(err, response) {
-			if (!err && response) {
+			if (err) {
+				console.error("Error:", err);
+				throw err;
+			}
+			if (response) {
+				console.log("Greeting:", response.getMessage());
+			}
+		});
+		const request2 = new HelloRequest();
+		this.client.sayHello(request2, function(err, response) {
+			if (err) {
+				console.error("Error:", err);
+				throw err;
+			}
+			if (response) {
 				console.log("Greeting:", response.getMessage());
 			}
 		});
